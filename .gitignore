@@ -22,6 +22,7 @@ firmware/*.map
 # Node/npm local tooling output
 node_modules/
 .npm/
+.venv/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

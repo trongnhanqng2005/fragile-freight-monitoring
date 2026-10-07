@@ -9,7 +9,23 @@
       "top": 0,
       "left": 0,
       "attrs": {}
+    },
+    {
+      "type": "wokwi-mpu6050",
+      "id": "imu",
+      "top": 0,
+      "left": 200,
+      "attrs": {}
     }
   ],
-  "connections": []
+  "connections": [
+    [ "imu:VCC", "esp:3V3", "red", [] ],
+    [ "imu:GND", "esp:GND.1", "black", [] ],
+    [ "imu:SDA", "esp:21", "green", [] ],
+    [ "imu:SCL", "esp:22", "blue", [] ]
+  ],
+  "serialMonitor": {
+    "display": "always",
+    "newline": "lf"
+  }
 }

@@ -1,6 +1,6 @@
 # Project Documentation
 
-This is the documentation entry point for people and AI agents working on Fragile Freight Monitoring. Start with the system overview, then consult the relevant requirement, hardware, firmware, or development guide.
+This is the documentation entry point for Fragile Freight Monitoring. Start with the system overview, then consult the relevant requirement, hardware, firmware, or development guide.
 
 ## Index
 

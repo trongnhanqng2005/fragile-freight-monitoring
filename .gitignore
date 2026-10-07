@@ -42,3 +42,6 @@ desktop.ini
 .opencode/
 opencode.json
 AGENTS.md
+
+# Local implementation task plans and context
+tasks/

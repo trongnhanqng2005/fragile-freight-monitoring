@@ -12,3 +12,5 @@ This is the documentation entry point for Fragile Freight Monitoring. Start with
 - [Firmware design](firmware/firmware-design.md)
 - [Local setup and verification](development/local-setup.md)
 - [Engineering conventions](development/conventions.md)
+- [MQTT integration contract](mqtt/integration-contract.md)
+- [Local MQTT broker](mqtt/local-broker.md)

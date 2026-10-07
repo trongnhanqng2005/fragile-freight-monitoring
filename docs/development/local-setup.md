@@ -13,6 +13,10 @@ The backend uses Java 21, Spring Boot, and the checked-in Maven Wrapper. From `b
 
 The backend is currently a scaffold. MQTT consumption and application APIs are not implemented.
 
+## Local MQTT development
+
+The local Mosquitto broker and host-only CLI publisher-to-subscriber verification are documented in the [Local MQTT Broker guide](../mqtt/local-broker.md). Use the [MQTT Integration Contract](../mqtt/integration-contract.md) for shared topics, payloads, and delivery behavior. Broker hostnames depend on where each client runs; the guide distinguishes host-only clients from Wokwi and physical devices.
+
 ## Firmware tooling
 
 The ESP32 project uses PlatformIO and Arduino. Local tooling belongs in the repository-root `.venv/` (ignored by Git), including PlatformIO Core and PySerial. If the local environment is not already present, create it from the repository root in PowerShell:

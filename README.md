@@ -15,7 +15,6 @@ backend/       Spring Boot scaffold
 firmware/      ESP32 PlatformIO firmware and Wokwi diagram
 node-red/      Placeholder for the planned Node-RED flow
 docs/          Requirements, hardware, architecture, firmware, and development docs
-tasks/         Active and completed task artifacts
 ```
 
 ## Progress

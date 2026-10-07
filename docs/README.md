@@ -12,5 +12,3 @@ This is the documentation entry point for people and AI agents working on Fragil
 - [Firmware design](firmware/firmware-design.md)
 - [Local setup and verification](development/local-setup.md)
 - [Engineering conventions](development/conventions.md)
-
-Task-specific implementation contracts and status are maintained separately under `../tasks/active/` and `../tasks/completed/`.

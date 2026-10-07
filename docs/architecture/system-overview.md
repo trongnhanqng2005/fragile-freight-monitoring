@@ -10,7 +10,7 @@ MPU6050
      -> status LEDs and buzzer
 ```
 
-The ESP32 reads the MPU6050 over I2C, calculates magnitude and deviation from 1g, classifies the current state, and drives local indicators. The current implementation is described in [Firmware Design](../firmware/firmware-design.md), and the completed implementation/verification record is in the [firmware impact alert task](../../tasks/completed/firmware-impact-alert.md).
+The ESP32 reads the MPU6050 over I2C, calculates magnitude and deviation from 1g, classifies the current state, and drives local indicators. The current implementation is described in [Firmware Design](../firmware/firmware-design.md).
 
 ## Planned connectivity path
 

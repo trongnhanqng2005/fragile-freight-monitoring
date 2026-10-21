@@ -1,0 +1,383 @@
+[
+    {
+        "id": "eb1168bbee482707",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "flow1",
+        "type": "tab",
+        "label": "Fragile Freight",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "broker1",
+        "type": "mqtt-broker",
+        "name": "Local Mosquitto",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "closeTopic": "",
+        "willTopic": ""
+    },
+    {
+        "id": "broker2",
+        "type": "mqtt-broker",
+        "name": "Adafruit IO",
+        "broker": "io.adafruit.com",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "f73c850816bd5d0d",
+        "type": "telegram bot",
+        "botname": "fragile_bot",
+        "usernames": "",
+        "chatids": "",
+        "baseapiurl": "",
+        "testenvironment": false,
+        "updatemode": "polling",
+        "pollinterval": 300,
+        "usesocks": false,
+        "sockshost": "",
+        "socksprotocol": "socks5",
+        "socksport": 6667,
+        "socksusername": "anonymous",
+        "sockspassword": "",
+        "bothost": "",
+        "botpath": "",
+        "localbothost": "0.0.0.0",
+        "localbotport": 8443,
+        "publicbotport": 8443,
+        "privatekey": "",
+        "certificate": "",
+        "useselfsignedcertificate": false,
+        "sslterminated": false,
+        "verboselogging": false
+    },
+    {
+        "id": "in1",
+        "type": "mqtt in",
+        "z": "flow1",
+        "name": "fragile-freight/esp32-01/+",
+        "topic": "fragile-freight/esp32-01/+",
+        "qos": "0",
+        "datatype": "utf8",
+        "broker": "broker1",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "json1"
+            ]
+        ]
+    },
+    {
+        "id": "json1",
+        "type": "json",
+        "z": "flow1",
+        "name": "Parse JSON",
+        "property": "payload",
+        "action": "",
+        "pretty": false,
+        "x": 310,
+        "y": 120,
+        "wires": [
+            [
+                "sw1"
+            ]
+        ]
+    },
+    {
+        "id": "sw1",
+        "type": "switch",
+        "z": "flow1",
+        "name": "Tach theo topic",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "fragile-freight/esp32-01/telemetry",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "fragile-freight/esp32-01/alert",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 480,
+        "y": 120,
+        "wires": [
+            [
+                "dbg1",
+                "chg1",
+                "chg2"
+            ],
+            [
+                "dbg2",
+                "eb9411b45aa7183e",
+                "f267fced113536c6"
+            ]
+        ]
+    },
+    {
+        "id": "dbg1",
+        "type": "debug",
+        "z": "flow1",
+        "name": "Telemetry",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 740,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "dbg2",
+        "type": "debug",
+        "z": "flow1",
+        "name": "Alert",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 650,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "chg1",
+        "type": "change",
+        "z": "flow1",
+        "name": "gForce -> feed",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "vanminh/feeds/gforce",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.gForce",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 860,
+        "y": 180,
+        "wires": [
+            [
+                "rate1"
+            ]
+        ]
+    },
+    {
+        "id": "rate1",
+        "type": "delay",
+        "z": "flow1",
+        "name": "1 tin / 3 giay",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "3",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 850,
+        "y": 280,
+        "wires": [
+            [
+                "mqttout1"
+            ]
+        ]
+    },
+    {
+        "id": "mqttout1",
+        "type": "mqtt out",
+        "z": "flow1",
+        "name": "Adafruit gforce",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "broker2",
+        "x": 860,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "eb9411b45aa7183e",
+        "type": "function",
+        "z": "flow1",
+        "name": "Format DANGER",
+        "func": "const COOLDOWN_MS = 30000;      // chờ 30 giây giữa hai lần gửi\nconst CHAT_ID = 8845662574;     // chat ID Telegram\n\nconst d = msg.payload;\nif (!d || d.status !== \"DANGER\") {\n    return null;\n}\n\nconst now = Date.now();\nconst last = context.get(\"lastSent\") || 0;\nif (now - last < COOLDOWN_MS) {\n    return null;\n}\ncontext.set(\"lastSent\", now);\n\nconst text = \"CẢNH BÁO VA ĐẬP (DANGER)\\n\" +\n    \"Thiết bị: \" + d.deviceId + \"\\n\" +\n    \"G-force: \" + d.gForce + \" g\\n\" +\n    \"Thời gian: \" + new Date().toLocaleString(\"vi-VN\", { timeZone: \"Asia/Ho_Chi_Minh\" });\n\nmsg.payload = { chatId: CHAT_ID, type: \"message\", content: text };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 340,
+        "wires": [
+            [
+                "f267fced113536c6"
+            ]
+        ]
+    },
+    {
+        "id": "f267fced113536c6",
+        "type": "telegram sender",
+        "z": "flow1",
+        "name": "",
+        "bot": "f73c850816bd5d0d",
+        "haserroroutput": false,
+        "outputs": 1,
+        "x": 590,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "chg2",
+        "type": "change",
+        "z": "flow1",
+        "name": "status -> feed",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "vanminh/feeds/status",
+                "tot": "str"
+            },
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.status",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 700,
+        "y": 40,
+        "wires": [
+            [
+                "rbe1"
+            ]
+        ]
+    },
+    {
+        "id": "rbe1",
+        "type": "rbe",
+        "z": "flow1",
+        "name": "Chi gui khi doi",
+        "func": "rbe",
+        "gap": "",
+        "start": "",
+        "inout": "out",
+        "septopics": false,
+        "property": "payload",
+        "topi": "topic",
+        "x": 940,
+        "y": 40,
+        "wires": [
+            [
+                "mqttout2"
+            ]
+        ]
+    },
+    {
+        "id": "mqttout2",
+        "type": "mqtt out",
+        "z": "flow1",
+        "name": "Adafruit status",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "broker2",
+        "x": 1180,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "2b07059d20efc62d",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-telegrambot": "19.0.3"
+        }
+    }
+]

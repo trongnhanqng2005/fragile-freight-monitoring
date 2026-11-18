@@ -2,6 +2,7 @@ package vn.edu.huit.fragilefreight.mqtt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 import vn.edu.huit.fragilefreight.model.SensorState;
@@ -30,5 +31,31 @@ class MqttMessageParserTest {
             () -> MqttMessageParser.parseAlert(payload));
 
         assertEquals("Alert payload must report a DANGER state", exception.getMessage());
+    }
+
+    @Test
+    void parseTelemetry_rejectsCoercionExtraFieldsAndWrongIdentity() {
+        assertThrows(IllegalArgumentException.class, () -> MqttMessageParser.parseTelemetry(
+            "{\"deviceId\":\"esp32-01\",\"ax\":\"0.02\",\"ay\":0,\"az\":1,\"gForce\":1,\"status\":\"SAFE\"}"));
+        assertThrows(IllegalArgumentException.class, () -> MqttMessageParser.parseTelemetry(
+            "{\"deviceId\":\"esp32-01\",\"ax\":0,\"ay\":0,\"az\":1,\"gForce\":1,\"status\":\"SAFE\",\"extra\":1}"));
+        assertThrows(IllegalArgumentException.class, () -> MqttMessageParser.parseTelemetry(
+            "{\"deviceId\":\"other\",\"ax\":0,\"ay\":0,\"az\":1,\"gForce\":1,\"status\":\"SAFE\"}"));
+    }
+
+    @Test
+    void parseTelemetry_rejectsOverflowAndNonExactStatus() {
+        assertThrows(IllegalArgumentException.class, () -> MqttMessageParser.parseTelemetry(
+            "{\"deviceId\":\"esp32-01\",\"ax\":1e400,\"ay\":0,\"az\":1,\"gForce\":1,\"status\":\"SAFE\"}"));
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+            () -> MqttMessageParser.parseTelemetry(
+                "{\"deviceId\":\"esp32-01\",\"ax\":0,\"ay\":0,\"az\":1,\"gForce\":1,\"status\":\"safe\"}"));
+        assertTrue(error.getMessage().contains("Status"));
+    }
+
+    @Test
+    void parseTelemetry_rejectsTrailingJson() {
+        assertThrows(IllegalArgumentException.class, () -> MqttMessageParser.parseTelemetry(
+            "{\"deviceId\":\"esp32-01\",\"ax\":0,\"ay\":0,\"az\":1,\"gForce\":1,\"status\":\"SAFE\"} {}"));
     }
 }

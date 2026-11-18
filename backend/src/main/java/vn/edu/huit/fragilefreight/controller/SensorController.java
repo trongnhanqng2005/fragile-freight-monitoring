@@ -1,6 +1,7 @@
 package vn.edu.huit.fragilefreight.controller;
 
 import java.util.Map;
+import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,4 +36,15 @@ public class SensorController {
             .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(Map.of("deviceId", deviceId, "message", "No data available for this device")));
     }
+
+    @GetMapping("/sensor/{deviceId}/alert")
+    public ResponseEntity<Object> getLatestAlert(@PathVariable String deviceId) {
+        return sensorStateService.getLatestAlert(deviceId)
+            .map(alert -> ResponseEntity.ok((Object) new AlertResponse(alert.getDeviceId(),
+                alert.getStatus(), alert.getGForce(), alert.getUpdatedAt())))
+            .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("deviceId", deviceId, "message", "No alert available for this device")));
+    }
+
+    public record AlertResponse(String deviceId, String status, double gForce, Instant updatedAt) { }
 }

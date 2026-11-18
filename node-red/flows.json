@@ -36,10 +36,11 @@
         "type": "mqtt-broker",
         "name": "Adafruit IO",
         "broker": "io.adafruit.com",
-        "port": "1883",
+        "port": "8883",
         "clientid": "",
         "autoConnect": true,
-        "usetls": false,
+        "usetls": true,
+        "tls": "tls1",
         "protocolVersion": "4",
         "keepalive": "60",
         "cleansession": true,
@@ -57,6 +58,20 @@
         "willMsg": {},
         "userProps": "",
         "sessionExpiry": ""
+    },
+    {
+        "id": "tls1",
+        "type": "tls-config",
+        "name": "Adafruit system CAs",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": true,
+        "alpnprotocol": ""
     },
     {
         "id": "f73c850816bd5d0d",
@@ -96,7 +111,7 @@
         "broker": "broker1",
         "nl": false,
         "rap": true,
-        "rh": 0,
+        "rh": 2,
         "inputs": 0,
         "x": 110,
         "y": 120,
@@ -115,6 +130,26 @@
         "action": "",
         "pretty": false,
         "x": 310,
+        "y": 120,
+        "wires": [
+            [
+                "validate1"
+            ]
+        ]
+    },
+    {
+        "id": "validate1",
+        "type": "function",
+        "z": "flow1",
+        "name": "Validate contract",
+        "func": "const deviceId = \"esp32-01\";\nconst telemetryTopic = `fragile-freight/${deviceId}/telemetry`;\nconst alertTopic = `fragile-freight/${deviceId}/alert`;\nif (msg.retain === true) return null;\nconst d = msg.payload;\nconst exactKeys = (v, keys) => v !== null && typeof v === \"object\" && !Array.isArray(v) && Object.keys(v).length === keys.length && keys.every(k => Object.prototype.hasOwnProperty.call(v, k));\nconst finite = v => typeof v === \"number\" && Number.isFinite(v);\nif (msg.topic === telemetryTopic) {\n    if (!exactKeys(d, [\"deviceId\", \"ax\", \"ay\", \"az\", \"gForce\", \"status\"]) || d.deviceId !== deviceId || ![d.ax, d.ay, d.az, d.gForce].every(finite) || ![\"SAFE\", \"WARNING\", \"DANGER\"].includes(d.status)) return null;\n} else if (msg.topic === alertTopic) {\n    if (!exactKeys(d, [\"deviceId\", \"status\", \"gForce\"]) || d.deviceId !== deviceId || d.status !== \"DANGER\" || !finite(d.gForce)) return null;\n    const now = Date.now(), last = context.get(\"lastAlert\");\n    if (last !== undefined && now - last < 1000) return null;\n    context.set(\"lastAlert\", now);\n} else return null;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 300,
         "y": 120,
         "wires": [
             [
@@ -154,8 +189,7 @@
             ],
             [
                 "dbg2",
-                "eb9411b45aa7183e",
-                "f267fced113536c6"
+                "eb9411b45aa7183e"
             ]
         ]
     },
@@ -191,30 +225,16 @@
     },
     {
         "id": "chg1",
-        "type": "change",
+        "type": "function",
         "z": "flow1",
         "name": "gForce -> feed",
-        "rules": [
-            {
-                "t": "set",
-                "p": "topic",
-                "pt": "msg",
-                "to": "vanminh/feeds/gforce",
-                "tot": "str"
-            },
-            {
-                "t": "set",
-                "p": "payload",
-                "pt": "msg",
-                "to": "payload.gForce",
-                "tot": "msg"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
+        "func": "const user = env.get(\"ADAFRUIT_USERNAME\");\nif (!user) return null;\nmsg.topic = user + \"/feeds/gforce\";\nmsg.payload = msg.payload.gForce;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
         "x": 860,
         "y": 180,
         "wires": [
@@ -271,7 +291,7 @@
         "type": "function",
         "z": "flow1",
         "name": "Format DANGER",
-        "func": "const COOLDOWN_MS = 30000;      // chờ 30 giây giữa hai lần gửi\nconst CHAT_ID = 8845662574;     // chat ID Telegram\n\nconst d = msg.payload;\nif (!d || d.status !== \"DANGER\") {\n    return null;\n}\n\nconst now = Date.now();\nconst last = context.get(\"lastSent\") || 0;\nif (now - last < COOLDOWN_MS) {\n    return null;\n}\ncontext.set(\"lastSent\", now);\n\nconst text = \"CẢNH BÁO VA ĐẬP (DANGER)\\n\" +\n    \"Thiết bị: \" + d.deviceId + \"\\n\" +\n    \"G-force: \" + d.gForce + \" g\\n\" +\n    \"Thời gian: \" + new Date().toLocaleString(\"vi-VN\", { timeZone: \"Asia/Ho_Chi_Minh\" });\n\nmsg.payload = { chatId: CHAT_ID, type: \"message\", content: text };\nreturn msg;",
+        "func": "const CHAT_ID = env.get(\"TELEGRAM_CHAT_ID\");\nconst d = msg.payload;\nif (!d || d.deviceId !== \"esp32-01\" || d.status !== \"DANGER\" || typeof d.gForce !== \"number\" || !Number.isFinite(d.gForce) || !CHAT_ID) return null;\nconst text = \"CẢNH BÁO VA ĐẬP (DANGER)\\n\" + \"Thiết bị: \" + d.deviceId + \"\\n\" + \"G-force: \" + d.gForce + \" g\";\nmsg.payload = { chatId: CHAT_ID, type: \"message\", content: text };\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -302,30 +322,16 @@
     },
     {
         "id": "chg2",
-        "type": "change",
+        "type": "function",
         "z": "flow1",
         "name": "status -> feed",
-        "rules": [
-            {
-                "t": "set",
-                "p": "topic",
-                "pt": "msg",
-                "to": "vanminh/feeds/status",
-                "tot": "str"
-            },
-            {
-                "t": "set",
-                "p": "payload",
-                "pt": "msg",
-                "to": "payload.status",
-                "tot": "msg"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
+        "func": "const user = env.get(\"ADAFRUIT_USERNAME\");\nif (!user) return null;\nmsg.topic = user + \"/feeds/status\";\nmsg.payload = msg.payload.status;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
         "x": 700,
         "y": 40,
         "wires": [

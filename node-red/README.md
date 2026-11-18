@@ -1,62 +1,83 @@
 # Module Integration / Node-RED
 
-Module này nhận dữ liệu MQTT từ thiết bị, đẩy G-force và trạng thái lên Adafruit IO, và gửi cảnh báo DANGER qua Telegram. Topic và payload tuân theo contract chung của nhóm tại `docs/mqtt/integration-contract.md`. Module này không tự đặt thêm quy ước nào ngoài file đó.
+Module này nhận dữ liệu MQTT từ thiết bị, đẩy G-force và trạng thái lên Adafruit IO, và gửi cảnh báo DANGER qua Telegram. Topic, payload và cadence tuân theo contract chung của nhóm tại [`docs/mqtt/integration-contract.md`](../docs/mqtt/integration-contract.md); module không tự đặt thêm quy ước nào ngoài file đó.
 
 ## Luồng dữ liệu
 
-ESP32 (hoặc script demo) → Mosquitto → Node-RED, từ đó chia hai nhánh:
+ESP32 (hoặc script demo) → Mosquitto → Node-RED, sau đó chia hai nhánh:
 
-- Telemetry (`fragile-freight/esp32-01/telemetry`): lấy `gForce` và `status` đẩy lên feed `gforce` và `status` của Adafruit IO. Node delay chỉ cho qua 1 tin mỗi 3 giây để không vượt giới hạn của gói miễn phí Adafruit, còn feed `status` chỉ nhận tin khi giá trị đổi.
-- Alert (`fragile-freight/esp32-01/alert`): chỉ khi `status` là DANGER mới gửi tin Telegram gồm thiết bị và G-force. Có thêm cooldown 30 giây làm lớp bảo vệ thứ hai, dù firmware đã không lặp alert theo contract.
+- Telemetry (`fragile-freight/esp32-01/telemetry`, firmware publish mỗi 1000 ms): lấy `gForce` và `status` đẩy lên feed `gforce` và `status` của Adafruit IO. Feed `gforce` được lấy mẫu tối đa 1 lần mỗi 3 giây; feed `status` chỉ nhận tin khi giá trị đổi. Đây là cách giảm tải cục bộ, không bảo đảm tuyệt đối quota của gói miễn phí Adafruit (quota còn phụ thuộc mức dùng chung và giới hạn thực tế của tài khoản), và không thay đổi cadence 1000 ms của thiết bị.
+- Alert (`fragile-freight/esp32-01/alert`): chỉ alert DANGER hợp lệ mới đi tới Telegram; telemetry không bao giờ đi tới sender. Bộ lọc yêu cầu đúng device, đúng kiểu, giá trị hữu hạn và đúng tập trường của contract (so khớp độ dài và own key). Alert trùng trong 1000 ms bị bỏ qua. Node MQTT in dùng MQTT 3.1.1 (`protocolVersion` = 4); giao thức này không hỗ trợ MQTT 5 Retain Handling (`rh`). Vì vậy flow bỏ mọi message có `msg.retain === true` trong `Validate contract`, tránh retained message được phát lại lúc khởi động đi tiếp.
 
-## Broker theo môi trường
+Không có đường tắt nào từ telemetry tới Telegram: chỉ output alert của switch mới nối tới `Format DANGER` → `Telegram sender`.
+
+## Broker
+
+Flow mặc định dùng broker cục bộ qua loopback:
 
 | Client | Host | Port |
 |---|---|---|
 | Node-RED chạy trên máy có broker | `localhost` | 1883 |
-| ESP32 trong Wokwi | `host.wokwi.internal` | 1883 |
+| `mosquitto_pub` / `mosquitto_sub` trên máy có broker | `localhost` | 1883 |
+| ESP32 trong Wokwi VS Code | `host.wokwi.internal` | 1883 |
 | ESP32 thật | IP LAN của máy chạy broker | 1883 |
 
-Để Wokwi hoặc ESP32 thật kết nối vào, broker phải nhận kết nối ngoài loopback. Theo `docs/mqtt/local-broker.md`, cấu hình listener là của riêng từng máy và không commit. Tạo file `node-red/mosquitto.conf` trên máy của bạn (đã được `node-red/.gitignore` chặn) với nội dung:
+`localhost` chỉ dùng cho tiến trình chạy trên chính máy có broker. Runtime đã kiểm tra: Wokwi VS Code 4.1.0 trên cùng máy kết nối thẳng tới Mosquitto đang lắng nghe loopback `127.0.0.1:1883` qua `host.wokwi.internal`, không cần listener LAN. ESP32 thật không phải tiến trình trên máy host nên cần listener trên mạng LAN tin cậy; cấu hình đó là của riêng từng máy, không được commit và phải giới hạn truy cập. Xem chính sách và cách kiểm tra loopback tại [`docs/mqtt/local-broker.md`](../docs/mqtt/local-broker.md); không mở broker ẩn danh ra mạng không tin cậy.
 
-    listener 1883
-    allow_anonymous true
+## Adafruit IO
 
-Chỉ dùng trong mạng tin cậy khi dev, không đưa ra mạng công cộng.
+Theo [tài liệu MQTT của Adafruit](https://io.adafruit.com/api/docs/mqtt.html), broker là `io.adafruit.com`, dùng cổng `8883` cho MQTT over TLS. Flow bật `Use TLS` và xác thực chứng chỉ máy chủ bằng CA hệ thống (tls-config `Adafruit system CAs`, `Verify server certificate` = true). Không tắt xác thực chứng chỉ và không dùng cổng 1883 cho Adafruit.
 
-## Cần cài trước
+## Credential và biến môi trường
 
-- Node.js (bản LTS) và Node-RED: `npm install -g node-red`
-- Mosquitto (kèm `mosquitto_pub`, `mosquitto_sub`) và thêm vào PATH
-- Node bổ sung cho Node-RED: `node-red-contrib-telegrambot` (cài qua Manage palette)
-- Tài khoản Adafruit IO với hai feed `gforce` và `status`
-- Một Telegram Bot do BotFather tạo, kèm chat ID của người nhận cảnh báo
+Token, key và chat ID không nằm trong repo. Sau khi import, mỗi người tự nhập:
+
+- `Adafruit gforce` / `Adafruit status`: bút chì cạnh ô Server → tab Security, Username = username Adafruit, Password = Active Key.
+- `Telegram sender`: bút chì cạnh ô Bot, dán token BotFather.
+- Đặt biến môi trường `ADAFRUIT_USERNAME` = username Adafruit. Hai node `gForce -> feed` và `status -> feed` dựng topic `<ADAFRUIT_USERNAME>/feeds/gforce` và `<ADAFRUIT_USERNAME>/feeds/status`; nếu biến chưa đặt, node trả `null` nên không publish, tránh gửi nhầm feed.
+- Đặt biến môi trường `TELEGRAM_CHAT_ID` = chat ID người nhận. `Format DANGER` đọc biến này bằng `env.get("TELEGRAM_CHAT_ID")`; nếu chưa đặt, không có tin nào tới sender.
+
+Trên Windows PowerShell, đặt biến trong đúng cửa sổ trước khi khởi chạy Node-RED (cần restart Node-RED nếu thay đổi biến):
+
+    $env:ADAFRUIT_USERNAME = "<username>"
+    $env:TELEGRAM_CHAT_ID = "<chat-id>"
+    node-red
+
+Không commit `.env`, `flows_cred.json`, `settings.js` chứa secret, hay bất kỳ file nào chứa key/chat ID. Node-RED lưu credential đã nhập vào `flows_cred.json` (đã bị `.gitignore` chặn).
+
+## Phụ thuộc
+
+- Node.js 24 (test dùng `node:test`).
+- Node-RED 5.0.10. Phần xử lý chỉ dùng core node: `mqtt in`, `json`, `function`, `switch`, `delay`, `rbe`, `debug`, `mqtt out`; không cần node-contrib nào cho MQTT hay xử lý dữ liệu.
+- `node-red-contrib-telegrambot` 19.0.3 (đã ghim trong `flows.json`; cài qua Manage palette hoặc chạy `npm install node-red-contrib-telegrambot@19.0.3` trong thư mục người dùng Node-RED, mặc định `~/.node-red`) cho hai node Telegram.
+- Mosquitto 2.x kèm `mosquitto_pub`, `mosquitto_sub` trong PATH.
+- Tài khoản Adafruit IO với hai feed `gforce`, `status`; một Telegram bot do BotFather tạo.
+
+Tương thích runtime: flow dùng MQTT 3.1.1 (`protocolVersion` = 4) cho broker input và Adafruit output. Retain Handling (`rh`) là tùy chọn MQTT 5 nên không tác dụng với kết nối MQTT 3.1.1; flow chủ động bỏ retained message trong function node. `mqtt out` có các trường MQTT 5 (`respTopic`, `contentType`, `userProps`, `correl`, `expiry`), nhưng Adafruit dùng MQTT 3.1.1 nên chúng chỉ là metadata và không được gửi.
 
 ## Chạy lại từ đầu
 
-1. Chạy broker bằng file cấu hình local vừa tạo ở trên.(nếu service Mosquitto nền của Windows đang chiếm cổng 1883 thì Stop nó trong `services.msc` trước):
-   `mosquitto -c node-red/mosquitto.conf -v`
-2. Chạy Node-RED: `node-red`, rồi mở `http://127.0.0.1:1880`.
+1. Chạy Mosquitto với cấu hình mặc định (chỉ loopback) theo [`docs/mqtt/local-broker.md`](../docs/mqtt/local-broker.md). Nếu service Mosquitto nền của Windows đang chiếm cổng 1883 thì Stop nó trong `services.msc` trước.
+2. Chạy `node-red`, rồi mở `http://127.0.0.1:1880`.
 3. Import `node-red/flows.json` (menu ≡ → Import).
-4. Nhập credential và sửa chat ID (xem phần dưới), sau đó Deploy.
-5. Kiểm tra node nhận MQTT và hai node Adafruit hiện connected.
+4. Sau khi import, nhập credential trong UI; đặt `ADAFRUIT_USERNAME` và `TELEGRAM_CHAT_ID` trước khi khởi chạy Node-RED, sau đó Deploy.
+5. Kiểm tra node nhận MQTT có tin và hai node Adafruit hiện connected qua TLS 8883.
 
-## Credential
+## Kiểm thử cục bộ
 
-Token và key không nằm trong repo. Mỗi người tự nhập vào Node-RED sau khi import:
+Từ thư mục gốc repo:
 
-- Node `Adafruit gforce` và `Adafruit status`: bấm bút chì cạnh ô Server, tab Security, điền Username Adafruit và Active Key vào ô Password.
-- Node `Telegram sender`: bấm bút chì cạnh ô Bot, dán token từ BotFather.
-- Node `gForce -> feed` và `status -> feed`: đổi phần username trong topic (`<username>/feeds/gforce`, `<username>/feeds/status`) thành username Adafruit của bạn.
-- Node `Format DANGER`: sửa hằng số `CHAT_ID` thành chat ID Telegram của người nhận.
+    node --test node-red/test/flows.test.cjs
 
-Không commit `.env`, file `*_cred.json` hay bất kỳ file nào chứa key.
+Các test đọc đồ thị flow và gọi function node trực tiếp; không kết nối broker, không gửi tin bên ngoài.
 
 ## Chạy thử không cần thiết bị
 
-Chạy kịch bản mô phỏng SAFE → WARNING → DANGER → SAFE theo đúng contract (alert chỉ gửi một lần, QoS 0):
+`demo.ps1` gửi SAFE → SAFE → WARNING → DANGER → SAFE theo đúng contract, QoS 0, không retain, cách nhau 4 giây; alert chỉ gửi ở bước DANGER:
 
     powershell -ExecutionPolicy Bypass -File node-red/demo.ps1
+
+Mặc định script dùng `-Broker localhost` và `-Port 1883`; đổi bằng `-Broker <host> -Port <port>` nếu cần. Script đưa JSON qua stdin tới `mosquitto_pub` để tránh escape thủ công và dừng nếu publish lỗi.
 
 Hoặc gửi tay từng tin (PowerShell, JSON bọc nháy đơn và giữ `\"` bên trong):
 
@@ -68,18 +89,19 @@ Hoặc gửi tay từng tin (PowerShell, JSON bọc nháy đơn và giữ `\"` b
 
 | Bước | Việc làm | Kết quả đúng |
 |---|---|---|
-| 1 | Chạy broker và Node-RED, Deploy | Node nhận MQTT và hai node Adafruit hiện connected |
+| 1 | Chạy broker và Node-RED, Deploy | Node nhận MQTT có tin; hai node Adafruit connected qua TLS 8883 |
 | 2 | Gửi telemetry SAFE | Tab Debug có mục Telemetry, Adafruit status = SAFE |
 | 3 | Gửi telemetry WARNING | Biểu đồ G-force tăng, status = WARNING, không có tin Telegram |
 | 4 | Gửi telemetry và alert DANGER | Status = DANGER, Telegram nhận đúng một tin |
-| 5 | Gửi lại alert DANGER trong 30 giây | Telegram không có tin thứ hai |
+| 5 | Gửi lại alert DANGER trong 1 giây | Telegram không có tin thứ hai (cooldown 1000 ms; firmware cũng không lặp alert khi DANGER còn tiếp diễn) |
 | 6 | Gửi alert mang status SAFE | Telegram không có tin nào |
 
 ## Lỗi hay gặp
 
 - `address already in use` khi chạy broker: service Mosquitto nền vẫn đang chạy, vào `services.msc` và Stop.
 - Tin vào broker nhưng Node-RED không hiện gì: kiểm tra topic ở node nhận và node switch đúng từng ký tự, không thừa dấu cách ở đầu hay cuối.
-- Node Adafruit báo đỏ: sai username hoặc Active Key trong tab Security.
-- Adafruit không nhận dữ liệu: topic của node `gForce -> feed` phải đúng dạng `<username>/feeds/gforce`, và nhớ Deploy sau khi sửa.
-- Telegram không có tin: node `Format DANGER` phải nối tới `Telegram sender`, và chat ID phải đúng.
-- `mosquitto_pub` báo `Unknown option`: lỗi dấu nháy trên PowerShell, bọc JSON bằng nháy đơn và giữ `\"` bên trong.
+- Node Adafruit báo đỏ: sai username hoặc Active Key trong tab Security, hoặc sai cổng/TLS. Nếu lỗi chứng chỉ, kiểm tra đồng hồ hệ thống và CA hệ thống; không tắt `Verify server certificate`.
+- Adafruit không nhận dữ liệu: `ADAFRUIT_USERNAME` chưa đặt trong đúng tiến trình Node-RED (node function trả `null`), sai tên feed, hoặc chưa Deploy.
+- Thấy dữ liệu cũ lặp lại: broker còn retained message từ lần publish trước; flow đã bỏ retained khi subscribe, nhưng có thể xoá retained trên broker.
+- Telegram không có tin: node `Format DANGER` phải nối tới `Telegram sender`, `TELEGRAM_CHAT_ID` phải được đặt trong đúng tiến trình Node-RED, và bot token phải đúng.
+- Script demo báo lỗi publish: kiểm tra broker/port và bảo đảm `mosquitto_pub` có trong PATH.

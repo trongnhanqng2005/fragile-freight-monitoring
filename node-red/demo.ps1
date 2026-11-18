@@ -3,7 +3,8 @@
 # Chay: powershell -ExecutionPolicy Bypass -File node-red/demo.ps1
 param(
     [string]$Broker = "localhost",
-    [int]$DelaySec = 4
+    [int]$DelaySec = 4,
+    [int]$Port = 1883
 )
 
 $DeviceId = "esp32-01"
@@ -13,9 +14,11 @@ $AlertTopic = "fragile-freight/$DeviceId/alert"
 function Send-Mqtt {
     param([string]$Topic, $Payload)
     $json = $Payload | ConvertTo-Json -Compress
-    $arg = $json -replace '"', '\"'
     # Contract: QoS 0, khong retain
-    mosquitto_pub -h $Broker -t $Topic -q 0 -m $arg
+    $json | mosquitto_pub -h $Broker -p $Port -t $Topic -q 0 -s
+    if ($LASTEXITCODE -ne 0) {
+        throw "mosquitto_pub failed for topic '$Topic' with exit code $LASTEXITCODE"
+    }
 }
 
 # Gia tri mau de demo; nguong that do firmware quyet dinh

@@ -45,7 +45,7 @@ On Windows, `firmware\scripts\pio.cmd` wraps the same project `.venv` and scopes
 The headless Wokwi CLI suite asserts local GPIO and Serial behavior, including when MQTT is unavailable. From the repository root:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\firmware\scripts\run-wokwi-suite.ps1
+pwsh.exe -NoProfile -File .\firmware\scripts\run-wokwi-suite.ps1
 ```
 
 That suite is a different layer from broker delivery: it does not require a host subscriber to receive anything.

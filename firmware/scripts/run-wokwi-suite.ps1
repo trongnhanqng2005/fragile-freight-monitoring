@@ -74,7 +74,7 @@ $cli = Join-Path $repoRoot '.tools\wokwi\wokwi-cli.exe'
 $gitHead = (& git -C $repoRoot rev-parse HEAD 2>$null).Trim()
 $dirty = @(& git -C $repoRoot status --short 2>$null)
 $suiteStatus = if (@($records | Where-Object status -eq 'FAIL').Count) { 'FAIL' } elseif (@($records | Where-Object status -eq 'BLOCKED').Count) { 'BLOCKED' } elseif (@($records | Where-Object status -eq 'NOT TESTED').Count) { 'NOT TESTED' } elseif (@($records | Where-Object status -ne 'PASS').Count) { 'FAIL' } else { 'PASS' }
-$mqttRecord = [pscustomobject]@{ scenario = 'real-firmware-to-host-Mosquitto-delivery'; status = 'BLOCKED'; diagnostics = 'Wokwi serial observed a TCP reset and no MQTT CONNACK or subscriber messages; the documented host broker listens on loopback only.' }
+$mqttRecord = [pscustomobject]@{ scenario = 'real-firmware-to-host-Mosquitto-delivery'; status = 'NOT TESTED'; diagnostics = 'The headless CLI suite does not measure broker or subscriber delivery. Verify real firmware-to-broker delivery separately with the VS Code Wokwi simulator and a host broker subscriber, as described in docs/development/local-setup.md.' }
 $report = [ordered]@{
     suite = 'automated-wokwi-firmware-runtime'
     status = $suiteStatus

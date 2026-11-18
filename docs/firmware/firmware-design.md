@@ -45,7 +45,7 @@ Non-finite samples are not published; telemetry keeps using the latest valid sam
 
 ## Runtime verification status
 
-Native behavior tests and the ESP32 build pass. Under Wokwi, local sensor sampling, LEDs, buzzer, Wi-Fi association, and spaced MQTT connection attempts were observed without a CONNACK or broker-delivered messages. Firmware-to-host MQTT delivery therefore remains unverified pending independent telemetry evidence; see [Local Setup and Verification](../development/local-setup.md).
+Native behavior tests and the ESP32 build pass. Firmware-to-broker delivery is verified in VS Code Wokwi with an activated license: the `esp32dev` build selected by `wokwi.toml` connects to a local Mosquitto broker, and a host-side subscriber receives SAFE and DANGER telemetry plus the DANGER alert on the QoS 0, non-retained topics. Delivery counts only once the subscriber receives the messages; an accepted connection alone is not delivery evidence. The procedure is in [Local Setup and Verification](../development/local-setup.md). The headless CLI GPIO suite and CI assert local outputs, native tests, and the build, which are different layers from broker delivery.
 
 ## Not implemented
 

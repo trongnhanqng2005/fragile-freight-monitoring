@@ -1,0 +1,25 @@
+name: 'SAFE before cooldown does not re-arm while DANGER persists'
+version: 1
+author: 'fragile-freight-monitoring'
+
+steps:
+  - wait-serial: 'MPU6050 initialized'
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 2
+  - wait-serial: 'State=DANGER'
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 1
+  - delay: 300ms
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 2
+  - delay: 1300ms
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 1

@@ -26,11 +26,21 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install platformio pyserial
 ```
 
-From `firmware/`, build with:
+From `firmware/`, build the ESP32 environment explicitly and run the native test suite:
 
 ```powershell
-..\.venv\Scripts\python.exe -m platformio run
+..\.venv\Scripts\python.exe -m platformio run -e esp32dev
+..\.venv\Scripts\python.exe -m platformio test -e native
 ```
+
+On Windows, `firmware\scripts\pio.cmd` wraps the same project `.venv` and scopes PlatformIO's core and cache to ignored `.tools/`. From the repository root:
+
+```powershell
+.\firmware\scripts\pio.cmd run -e esp32dev
+.\firmware\scripts\pio.cmd test -e native
+```
+
+`firmware/scripts/use_native_toolchain.py` selects the project-local MSYS2 UCRT64 GCC/G++ on Windows only; other hosts, including Ubuntu CI, use the system GCC. The workflow `.github/workflows/firmware.yml` runs `pio test -e native` and `pio run -e esp32dev` on `ubuntu-latest` for pull requests to `main`. CI does not start Wokwi, a broker, or a subscriber, so it does not verify runtime MQTT delivery.
 
 The Wokwi PlatformIO extension is recommended in `firmware/.vscode/extensions.json`. The local `firmware/wokwi.toml` selects `.pio/build/esp32dev/firmware.bin` and `.pio/build/esp32dev/firmware.elf`; build first, then open the `firmware/` directory in VS Code and start the Wokwi simulation.
 
@@ -47,4 +57,4 @@ Use the MPU6050 acceleration controls (values in g) and observe Serial output, L
 | DANGER | `(1.7, 0, 1.0)` | ~1.97g, ~0.97g deviation, DANGER, red LED, one short buzzer tone |
 | Return to SAFE | `(0, 0, 1)` | SAFE, green LED; buzzer re-arms after SAFE and cooldown |
 
-The values are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately; do not claim audible output unless it was actually heard.
+The values are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately; do not claim audible output unless it was actually heard. These local checks do not prove firmware-to-host MQTT connectivity or subscriber delivery; runtime MQTT verification remains pending independent telemetry evidence.

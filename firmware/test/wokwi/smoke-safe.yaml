@@ -1,0 +1,31 @@
+name: 'Firmware boot and SAFE output smoke test'
+version: 1
+author: 'fragile-freight-monitoring'
+
+steps:
+  - wait-serial: 'MPU6050 initialized'
+  - set-control:
+      part-id: imu
+      control: accelX
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelY
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 1
+  - wait-serial: 'State=SAFE'
+  - expect-pin:
+      part-id: esp
+      name: '25'
+      value: 1
+  - expect-pin:
+      part-id: esp
+      name: '26'
+      value: 0
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 0

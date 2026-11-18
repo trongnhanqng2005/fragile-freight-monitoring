@@ -1,0 +1,95 @@
+name: 'SAFE WARNING DANGER SAFE state and LED cycle'
+version: 1
+author: 'fragile-freight-monitoring'
+
+steps:
+  - wait-serial: 'MPU6050 initialized'
+  - set-control:
+      part-id: imu
+      control: accelX
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelY
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 1
+  - wait-serial: 'State=SAFE'
+  - expect-pin:
+      part-id: esp
+      name: '25'
+      value: 1
+  - expect-pin:
+      part-id: esp
+      name: '26'
+      value: 0
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelX
+      value: 1
+  - set-control:
+      part-id: imu
+      control: accelY
+      value: 0.6
+  - wait-serial: 'State=WARNING'
+  - expect-pin:
+      part-id: esp
+      name: '25'
+      value: 0
+  - expect-pin:
+      part-id: esp
+      name: '26'
+      value: 1
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelX
+      value: 1.7
+  - set-control:
+      part-id: imu
+      control: accelY
+      value: 0
+  - wait-serial: 'State=DANGER'
+  - expect-pin:
+      part-id: esp
+      name: '25'
+      value: 0
+  - expect-pin:
+      part-id: esp
+      name: '26'
+      value: 0
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 1
+  - delay: 400ms
+  - set-control:
+      part-id: imu
+      control: accelX
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 1
+  - wait-serial: 'State=SAFE'
+  - expect-pin:
+      part-id: esp
+      name: '25'
+      value: 1
+  - expect-pin:
+      part-id: esp
+      name: '26'
+      value: 0
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 0

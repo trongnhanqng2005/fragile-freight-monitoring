@@ -1,8 +1,9 @@
 #include <Arduino.h>
 #include <MPU6050_light.h>
 #include <Wire.h>
-
-#include <math.h>
+#include <ImpactLogic.h>
+#include "NetworkAdapter.h"
+#include <TelemetryTiming.h>
 
 constexpr int I2C_SDA_PIN = 21;
 constexpr int I2C_SCL_PIN = 22;
@@ -11,43 +12,30 @@ constexpr int YELLOW_LED_PIN = 26;
 constexpr int RED_LED_PIN = 27;
 constexpr int BUZZER_PIN = 32;
 constexpr float GRAVITY_MS2 = 9.80665f;
-constexpr float WARNING_DEVIATION_G = 0.4f;
-constexpr float DANGER_DEVIATION_G = 0.9f;
 constexpr unsigned long SAMPLE_INTERVAL_MS = 10;
 constexpr unsigned long SERIAL_INTERVAL_MS = 250;
-constexpr unsigned long ALERT_COOLDOWN_MS = 1000;
 constexpr unsigned long BUZZER_DURATION_MS = 150;
 
-enum class ImpactState { SAFE, WARNING, DANGER };
+using fragilefreight::ImpactLogic;
+using fragilefreight::ImpactSnapshot;
+using fragilefreight::ImpactState;
+using fragilefreight::TelemetryTiming;
+using fragilefreight::stateName;
 
 MPU6050 mpu(Wire);
-ImpactState impactState = ImpactState::SAFE;
-unsigned long lastSampleMs = 0;
-unsigned long lastSerialMs = 0;
-unsigned long lastDangerAlertMs = 0;
-unsigned long buzzerStartedMs = 0;
-bool hasDangerAlert = false;
-bool alertArmed = true;
+NetworkAdapter network;
+ImpactLogic impactLogic;
+TelemetryTiming telemetryTiming;
+ImpactSnapshot latestSnapshot{};
+bool hasValidSnapshot = false;
+uint32_t lastSampleMs = 0;
+uint32_t lastSerialMs = 0;
+uint32_t buzzerStartedMs = 0;
 bool buzzerActive = false;
 
-ImpactState classifyImpact(float deviationG) {
-  if (deviationG >= DANGER_DEVIATION_G) {
-    return ImpactState::DANGER;
-  }
-  if (deviationG >= WARNING_DEVIATION_G) {
-    return ImpactState::WARNING;
-  }
-  return ImpactState::SAFE;
-}
-
-const char* stateName(ImpactState state) {
-  switch (state) {
-    case ImpactState::WARNING:
-      return "WARNING";
-    case ImpactState::DANGER:
-      return "DANGER";
-    default:
-      return "SAFE";
+void serviceTelemetry(uint32_t now) {
+  if (telemetryTiming.due(now) && hasValidSnapshot) {
+    network.publishTelemetry(latestSnapshot);
   }
 }
 
@@ -94,10 +82,12 @@ void setup() {
     }
   }
   Serial.println("MPU6050 initialized");
+
+  network.begin();
 }
 
 void loop() {
-  const unsigned long now = millis();
+  const uint32_t now = millis();
 
   if (now - lastSampleMs >= SAMPLE_INTERVAL_MS) {
     lastSampleMs = now;
@@ -106,43 +96,38 @@ void loop() {
     const float axG = mpu.getAccX();
     const float ayG = mpu.getAccY();
     const float azG = mpu.getAccZ();
-    const float magnitudeG = sqrtf(axG * axG + ayG * ayG + azG * azG);
-    const float deviationG = fabsf(magnitudeG - 1.0f);
-    const ImpactState newState = classifyImpact(deviationG);
-
-    if (newState != impactState) {
-      impactState = newState;
-      applyState(impactState);
+    const ImpactState previousState = impactLogic.state();
+    const ImpactSnapshot sample = impactLogic.update(axG, ayG, azG, now);
+    if (sample.valid) {
+      latestSnapshot = sample;
+      hasValidSnapshot = true;
     }
 
-    if (impactState == ImpactState::DANGER && alertArmed) {
+    if (sample.state != previousState) {
+      applyState(sample.state);
+    }
+
+    if (sample.dangerEvent) {
       tone(BUZZER_PIN, 2000);
       buzzerStartedMs = now;
-      lastDangerAlertMs = now;
-      hasDangerAlert = true;
-      alertArmed = false;
       buzzerActive = true;
-    }
-
-    if (impactState == ImpactState::SAFE && hasDangerAlert &&
-        now - lastDangerAlertMs >= ALERT_COOLDOWN_MS) {
-      alertArmed = true;
+      network.publishAlert(sample);
     }
 
     if (now - lastSerialMs >= SERIAL_INTERVAL_MS) {
       lastSerialMs = now;
       Serial.print("Accel [m/s^2]: Ax=");
-      Serial.print(axG * GRAVITY_MS2, 2);
+      Serial.print(sample.axG * GRAVITY_MS2, 2);
       Serial.print(" Ay=");
-      Serial.print(ayG * GRAVITY_MS2, 2);
+      Serial.print(sample.ayG * GRAVITY_MS2, 2);
       Serial.print(" Az=");
-      Serial.print(azG * GRAVITY_MS2, 2);
+      Serial.print(sample.azG * GRAVITY_MS2, 2);
       Serial.print(" | Magnitude=");
-      Serial.print(magnitudeG, 2);
+      Serial.print(sample.magnitudeG, 2);
       Serial.print(" g | Deviation=");
-      Serial.print(deviationG, 2);
+      Serial.print(sample.deviationG, 2);
       Serial.print(" g | State=");
-      Serial.println(stateName(impactState));
+      Serial.println(stateName(sample.state));
     }
   }
 
@@ -150,4 +135,7 @@ void loop() {
     noTone(BUZZER_PIN);
     buzzerActive = false;
   }
+
+  network.update(now);
+  serviceTelemetry(now);
 }

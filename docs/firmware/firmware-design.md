@@ -45,8 +45,10 @@ Non-finite samples are not published; telemetry keeps using the latest valid sam
 
 ## Runtime verification status
 
-Native behavior tests and the ESP32 build pass. Firmware-to-broker delivery is verified in VS Code Wokwi with an activated license: the `esp32dev` build selected by `wokwi.toml` connects to a local Mosquitto broker, and a host-side subscriber receives SAFE and DANGER telemetry plus the DANGER alert on the QoS 0, non-retained topics. Delivery counts only once the subscriber receives the messages; an accepted connection alone is not delivery evidence. The procedure is in [Local Setup and Verification](../development/local-setup.md). The headless CLI GPIO suite and CI assert local outputs, native tests, and the build, which are different layers from broker delivery.
+On 2026-11-18 ICT, 42 native behavior tests passed and the `esp32dev` environment built. The resulting `firmware.bin` SHA256 is `1576a79f3835ff55108444439c521e1dba1b483a08655e70847649d87b1336cf`.
 
-## Not implemented
+Firmware-to-broker delivery passed in Wokwi for VS Code 4.1.0 (Community) against a host loopback Mosquitto at `127.0.0.1:1883`, with the firmware broker address `host.wokwi.internal`. In the 16:18:09–16:18:51 ICT capture, setting `accelZ` to 0.95, 1.55, 2.0, then 0.95 produced SAFE (~0.95g), WARNING (~1.55g), DANGER (~2g), and SAFE again. A host subscriber received telemetry in all three states and exactly one non-retained QoS 0 DANGER alert; Serial output and the LEDs were observed in the GUI.
 
-Node-RED MQTT flow, Spring Boot MQTT consumption/APIs, Adafruit IO integration, and Telegram integration are not implemented.
+The Wokwi CLI v0.28.1 state-cycle check passed, including the buzzer waveform: 149.277 ms at 2003 Hz (598 transitions). The CLI's MQTT gateway connection was reset, so broker delivery is checked with the VS Code GUI instead. A waveform is not evidence of audible sound; audibility remains unverified.
+
+Adafruit IO feed writes, Telegram message arrival, and a full end-to-end run with the backend and Node-RED are pending. See the [Backend README](../../backend/README.md) and [Node-RED README](../../node-red/README.md) for module status.

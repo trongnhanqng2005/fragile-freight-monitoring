@@ -1,0 +1,25 @@
+name: 'SAFE after cooldown permits a second DANGER event'
+version: 1
+author: 'fragile-freight-monitoring'
+
+steps:
+  - wait-serial: 'MPU6050 initialized'
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 2
+  - wait-serial: 'State=DANGER'
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 1
+  - delay: 1200ms
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 2
+  - delay: 400ms
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 1

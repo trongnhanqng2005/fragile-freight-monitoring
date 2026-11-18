@@ -1,0 +1,42 @@
+name: 'WARNING does not re-arm after cooldown'
+version: 1
+author: 'fragile-freight-monitoring'
+
+steps:
+  - wait-serial: 'MPU6050 initialized'
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 2
+  - wait-serial: 'State=DANGER'
+  - set-control:
+      part-id: imu
+      control: accelX
+      value: 1
+  - set-control:
+      part-id: imu
+      control: accelY
+      value: 0.6
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 1
+  - wait-serial: 'State=WARNING'
+  - delay: 100ms
+  - set-control:
+      part-id: imu
+      control: accelX
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelY
+      value: 0
+  - set-control:
+      part-id: imu
+      control: accelZ
+      value: 2
+  - delay: 1500ms
+  - expect-pin:
+      part-id: esp
+      name: '27'
+      value: 1

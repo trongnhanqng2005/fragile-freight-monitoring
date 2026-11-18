@@ -26,15 +26,50 @@ py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install platformio pyserial
 ```
 
-From `firmware/`, build with:
+From `firmware/`, build the ESP32 environment explicitly and run the native test suite:
 
 ```powershell
-..\.venv\Scripts\python.exe -m platformio run
+..\.venv\Scripts\python.exe -m platformio run -e esp32dev
+..\.venv\Scripts\python.exe -m platformio test -e native
 ```
+
+On Windows, `firmware\scripts\pio.cmd` wraps the same project `.venv` and scopes PlatformIO's core and cache to ignored `.tools/`. From the repository root:
+
+```powershell
+.\firmware\scripts\pio.cmd run -e esp32dev
+.\firmware\scripts\pio.cmd test -e native
+```
+
+`firmware/scripts/use_native_toolchain.py` selects the project-local MSYS2 UCRT64 GCC/G++ on Windows only; other hosts, including Ubuntu CI, use the system GCC. The workflow `.github/workflows/firmware.yml` runs `pio test -e native` and `pio run -e esp32dev` on `ubuntu-latest` for pull requests to `main`. CI does not start Wokwi, a broker, or a subscriber, so it does not verify runtime MQTT delivery.
+
+The headless Wokwi CLI suite asserts local GPIO and Serial behavior, including when MQTT is unavailable. From the repository root:
+
+```powershell
+pwsh.exe -NoProfile -File .\firmware\scripts\run-wokwi-suite.ps1
+```
+
+That suite is a different layer from broker delivery: it does not require a host subscriber to receive anything.
 
 The Wokwi PlatformIO extension is recommended in `firmware/.vscode/extensions.json`. The local `firmware/wokwi.toml` selects `.pio/build/esp32dev/firmware.bin` and `.pio/build/esp32dev/firmware.elf`; build first, then open the `firmware/` directory in VS Code and start the Wokwi simulation.
 
 The diagram retains explicit ESP32 UART-to-Serial-Monitor wiring. Preserve the TX/RX connections for Serial output in Wokwi.
+
+## Wokwi MQTT delivery check
+
+Firmware-to-broker delivery needs the VS Code Wokwi simulator with an activated Wokwi license and a running local Mosquitto broker; the CLI suite and CI do not cover it. Start the broker as described in the [Local MQTT Broker guide](../mqtt/local-broker.md), then subscribe on the host to both contract topics:
+
+```powershell
+& "D:\Program Files\Mosquitto\mosquitto_sub.exe" `
+  -h localhost `
+  -p 1883 `
+  -t "fragile-freight/esp32-01/telemetry" `
+  -t "fragile-freight/esp32-01/alert" `
+  -v
+```
+
+Build `esp32dev`, open `firmware/` in VS Code, start the Wokwi simulation, and drive the states from the impact table below. Serial output shows the broker accepting the MQTT connection; the subscriber must print telemetry for SAFE and DANGER and an alert message for each armed DANGER event. Treat delivery as verified only when the subscriber actually receives those messages, not from an accepted connection alone.
+
+The broker must accept the Wokwi client at `host.wokwi.internal:1883` as described in the host table of the broker guide; any listener configuration needed for that stays local and untracked.
 
 ## Manual Wokwi impact checks
 
@@ -47,4 +82,4 @@ Use the MPU6050 acceleration controls (values in g) and observe Serial output, L
 | DANGER | `(1.7, 0, 1.0)` | ~1.97g, ~0.97g deviation, DANGER, red LED, one short buzzer tone |
 | Return to SAFE | `(0, 0, 1)` | SAFE, green LED; buzzer re-arms after SAFE and cooldown |
 
-The values are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately; do not claim audible output unless it was actually heard.
+The values are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately; do not claim audible output unless it was actually heard. These checks assert device outputs only; broker delivery is verified separately by the subscriber check above, and the downstream Node-RED, Adafruit IO, Telegram, and Spring Boot consumers are not implemented.

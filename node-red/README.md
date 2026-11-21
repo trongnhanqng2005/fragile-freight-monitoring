@@ -7,7 +7,7 @@ Module này nhận dữ liệu MQTT từ thiết bị, đẩy G-force và trạn
 ESP32 (hoặc script demo) → Mosquitto → Node-RED, sau đó chia hai nhánh:
 
 - Telemetry (`fragile-freight/esp32-01/telemetry`, firmware publish mỗi 1000 ms): lấy `gForce` và `status` đẩy lên feed `gforce` và `status` của Adafruit IO. Feed `gforce` được lấy mẫu tối đa 1 lần mỗi 3 giây; feed `status` chỉ nhận tin khi giá trị đổi. Đây là cách giảm tải cục bộ, không bảo đảm tuyệt đối quota của gói miễn phí Adafruit (quota còn phụ thuộc mức dùng chung và giới hạn thực tế của tài khoản), và không thay đổi cadence 1000 ms của thiết bị.
-- Alert (`fragile-freight/esp32-01/alert`): chỉ alert DANGER hợp lệ mới đi tới Telegram; telemetry không bao giờ đi tới sender. Bộ lọc yêu cầu đúng device, đúng kiểu, giá trị hữu hạn và đúng tập trường của contract (so khớp độ dài và own key). Alert trùng trong 1000 ms bị bỏ qua. Node MQTT in dùng MQTT 3.1.1 (`protocolVersion` = 4); giao thức này không hỗ trợ MQTT 5 Retain Handling (`rh`). Vì vậy flow bỏ mọi message có `msg.retain === true` trong `Validate contract`, tránh retained message được phát lại lúc khởi động đi tiếp.
+- Alert (`fragile-freight/esp32-01/alert`): chỉ alert DANGER hợp lệ mới đi tới Telegram; telemetry không bao giờ đi tới sender. `Validate contract` nhận payload thô và `JSON.parse` đúng một lần; JSON lỗi hoặc object có member trùng tên (kể cả tên viết bằng escape Unicode như `\u0073tatus`) bị bỏ trước khi kiểm tra schema và cooldown, vì `JSON.parse` gộp member trùng và có thể đổi nghĩa `status`. Bộ lọc yêu cầu đúng device, đúng kiểu, giá trị hữu hạn và đúng tập trường của contract (so khớp độ dài và own key). Alert trùng trong 1000 ms bị bỏ qua. Node MQTT in dùng MQTT 3.1.1 (`protocolVersion` = 4); giao thức này không hỗ trợ MQTT 5 Retain Handling (`rh`). Vì vậy flow bỏ mọi message có `msg.retain === true` trong `Validate contract`, tránh retained message được phát lại lúc khởi động đi tiếp.
 
 Không có đường tắt nào từ telemetry tới Telegram: chỉ output alert của switch mới nối tới `Format DANGER` → `Telegram sender`.
 
@@ -48,7 +48,7 @@ Không commit `.env`, `flows_cred.json`, `settings.js` chứa secret, hay bất 
 ## Phụ thuộc
 
 - Node.js 24 (test dùng `node:test`).
-- Node-RED 5.0.10. Phần xử lý chỉ dùng core node: `mqtt in`, `json`, `function`, `switch`, `delay`, `rbe`, `debug`, `mqtt out`; không cần node-contrib nào cho MQTT hay xử lý dữ liệu.
+- Node-RED 5.0.10. Phần xử lý chỉ dùng core node: `mqtt in`, `function`, `switch`, `delay`, `rbe`, `debug`, `mqtt out`; không cần node-contrib nào cho MQTT hay xử lý dữ liệu.
 - `node-red-contrib-telegrambot` 19.0.3 (đã ghim trong `flows.json`; cài qua Manage palette hoặc chạy `npm install node-red-contrib-telegrambot@19.0.3` trong thư mục người dùng Node-RED, mặc định `~/.node-red`) cho hai node Telegram.
 - Mosquitto 2.x kèm `mosquitto_pub`, `mosquitto_sub` trong PATH.
 - Tài khoản Adafruit IO với hai feed `gforce`, `status`; một Telegram bot do BotFather tạo.

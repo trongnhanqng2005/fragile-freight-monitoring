@@ -1,0 +1,373 @@
+[
+    {
+        "id": "eb1168bbee482707",
+        "type": "tab",
+        "label": "Flow 1",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "flow1",
+        "type": "tab",
+        "label": "Fragile Freight",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "broker1",
+        "type": "mqtt-broker",
+        "name": "Local Mosquitto",
+        "broker": "localhost",
+        "port": "1883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "closeTopic": "",
+        "willTopic": ""
+    },
+    {
+        "id": "broker2",
+        "type": "mqtt-broker",
+        "name": "Adafruit IO",
+        "broker": "io.adafruit.com",
+        "port": "8883",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "tls": "tls1",
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "tls1",
+        "type": "tls-config",
+        "name": "Adafruit system CAs",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": true,
+        "alpnprotocol": ""
+    },
+    {
+        "id": "f73c850816bd5d0d",
+        "type": "telegram bot",
+        "botname": "fragile_bot",
+        "usernames": "",
+        "chatids": "",
+        "baseapiurl": "",
+        "testenvironment": false,
+        "updatemode": "polling",
+        "pollinterval": 300,
+        "usesocks": false,
+        "sockshost": "",
+        "socksprotocol": "socks5",
+        "socksport": 6667,
+        "socksusername": "anonymous",
+        "sockspassword": "",
+        "bothost": "",
+        "botpath": "",
+        "localbothost": "0.0.0.0",
+        "localbotport": 8443,
+        "publicbotport": 8443,
+        "privatekey": "",
+        "certificate": "",
+        "useselfsignedcertificate": false,
+        "sslterminated": false,
+        "verboselogging": false
+    },
+    {
+        "id": "in1",
+        "type": "mqtt in",
+        "z": "flow1",
+        "name": "fragile-freight/esp32-01/+",
+        "topic": "fragile-freight/esp32-01/+",
+        "qos": "0",
+        "datatype": "utf8",
+        "broker": "broker1",
+        "nl": false,
+        "rap": true,
+        "rh": 2,
+        "inputs": 0,
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "validate1"
+            ]
+        ]
+    },
+    {
+        "id": "validate1",
+        "type": "function",
+        "z": "flow1",
+        "name": "Validate contract",
+        "func": "const deviceId = \"esp32-01\";\nconst telemetryTopic = `fragile-freight/${deviceId}/telemetry`;\nconst alertTopic = `fragile-freight/${deviceId}/alert`;\nif (msg.retain === true) return null;\nif (typeof msg.payload !== \"string\") return null;\nlet d;\ntry { d = JSON.parse(msg.payload); } catch (e) { return null; }\nconst exactKeys = (v, keys) => v !== null && typeof v === \"object\" && !Array.isArray(v) && Object.keys(v).length === keys.length && keys.every(k => Object.prototype.hasOwnProperty.call(v, k));\nconst finite = v => typeof v === \"number\" && Number.isFinite(v);\nconst noDuplicateKeys = (raw, keys) => (raw.match(/\"(?:\\\\.|[^\"\\\\])*\"\\s*:/g) || []).length === keys.length;\nconst telemetryKeys = [\"deviceId\", \"ax\", \"ay\", \"az\", \"gForce\", \"status\"];\nconst alertKeys = [\"deviceId\", \"status\", \"gForce\"];\nif (msg.topic === telemetryTopic) {\n    if (!noDuplicateKeys(msg.payload, telemetryKeys) || !exactKeys(d, telemetryKeys) || d.deviceId !== deviceId || ![d.ax, d.ay, d.az, d.gForce].every(finite) || ![\"SAFE\", \"WARNING\", \"DANGER\"].includes(d.status)) return null;\n} else if (msg.topic === alertTopic) {\n    if (!noDuplicateKeys(msg.payload, alertKeys) || !exactKeys(d, alertKeys) || d.deviceId !== deviceId || d.status !== \"DANGER\" || !finite(d.gForce)) return null;\n    const now = Date.now(), last = context.get(\"lastAlert\");\n    if (last !== undefined && now - last < 1000) return null;\n    context.set(\"lastAlert\", now);\n} else return null;\nmsg.payload = d;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 300,
+        "y": 120,
+        "wires": [
+            [
+                "sw1"
+            ]
+        ]
+    },
+    {
+        "id": "sw1",
+        "type": "switch",
+        "z": "flow1",
+        "name": "Tach theo topic",
+        "property": "topic",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "fragile-freight/esp32-01/telemetry",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "fragile-freight/esp32-01/alert",
+                "vt": "str"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 2,
+        "x": 480,
+        "y": 120,
+        "wires": [
+            [
+                "dbg1",
+                "chg1",
+                "chg2"
+            ],
+            [
+                "dbg2",
+                "eb9411b45aa7183e"
+            ]
+        ]
+    },
+    {
+        "id": "dbg1",
+        "type": "debug",
+        "z": "flow1",
+        "name": "Telemetry",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 740,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "dbg2",
+        "type": "debug",
+        "z": "flow1",
+        "name": "Alert",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 650,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "chg1",
+        "type": "function",
+        "z": "flow1",
+        "name": "gForce -> feed",
+        "func": "const user = env.get(\"ADAFRUIT_USERNAME\");\nif (!user) return null;\nmsg.topic = user + \"/feeds/gforce\";\nmsg.payload = msg.payload.gForce;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 180,
+        "wires": [
+            [
+                "rate1"
+            ]
+        ]
+    },
+    {
+        "id": "rate1",
+        "type": "delay",
+        "z": "flow1",
+        "name": "1 tin / 3 giay",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "3",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 850,
+        "y": 280,
+        "wires": [
+            [
+                "mqttout1"
+            ]
+        ]
+    },
+    {
+        "id": "mqttout1",
+        "type": "mqtt out",
+        "z": "flow1",
+        "name": "Adafruit gforce",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "broker2",
+        "x": 860,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "eb9411b45aa7183e",
+        "type": "function",
+        "z": "flow1",
+        "name": "Format DANGER",
+        "func": "const CHAT_ID = env.get(\"TELEGRAM_CHAT_ID\");\nconst d = msg.payload;\nif (!d || d.deviceId !== \"esp32-01\" || d.status !== \"DANGER\" || typeof d.gForce !== \"number\" || !Number.isFinite(d.gForce) || !CHAT_ID) return null;\nconst text = \"CẢNH BÁO VA ĐẬP (DANGER)\\n\" + \"Thiết bị: \" + d.deviceId + \"\\n\" + \"G-force: \" + d.gForce + \" g\";\nmsg.payload = { chatId: CHAT_ID, type: \"message\", content: text };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 330,
+        "y": 340,
+        "wires": [
+            [
+                "f267fced113536c6"
+            ]
+        ]
+    },
+    {
+        "id": "f267fced113536c6",
+        "type": "telegram sender",
+        "z": "flow1",
+        "name": "",
+        "bot": "f73c850816bd5d0d",
+        "haserroroutput": false,
+        "outputs": 1,
+        "x": 590,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "chg2",
+        "type": "function",
+        "z": "flow1",
+        "name": "status -> feed",
+        "func": "const user = env.get(\"ADAFRUIT_USERNAME\");\nif (!user) return null;\nmsg.topic = user + \"/feeds/status\";\nmsg.payload = msg.payload.status;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 40,
+        "wires": [
+            [
+                "rbe1"
+            ]
+        ]
+    },
+    {
+        "id": "rbe1",
+        "type": "rbe",
+        "z": "flow1",
+        "name": "Chi gui khi doi",
+        "func": "rbe",
+        "gap": "",
+        "start": "",
+        "inout": "out",
+        "septopics": false,
+        "property": "payload",
+        "topi": "topic",
+        "x": 940,
+        "y": 40,
+        "wires": [
+            [
+                "mqttout2"
+            ]
+        ]
+    },
+    {
+        "id": "mqttout2",
+        "type": "mqtt out",
+        "z": "flow1",
+        "name": "Adafruit status",
+        "topic": "",
+        "qos": "0",
+        "retain": "false",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "broker2",
+        "x": 1180,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "2b07059d20efc62d",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-telegrambot": "19.0.3"
+        }
+    }
+]

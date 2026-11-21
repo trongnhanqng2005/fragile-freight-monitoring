@@ -1,0 +1,4 @@
+# Credential va cau hinh cuc bo cua Node-RED, khong commit
+*_cred.json
+.config*.json
+mosquitto.conf

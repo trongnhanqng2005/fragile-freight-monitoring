@@ -25,4 +25,4 @@ These values are initial demo/calibration thresholds only. They are not universa
 
 ## Current implementation boundary
 
-Classification and local outputs run on the ESP32. Network reporting and external notification paths are planned separately and are not part of this local requirement.
+Classification, local outputs, and MQTT publication run on the ESP32. The shared network contract is defined separately; external notification is outside this local requirement.

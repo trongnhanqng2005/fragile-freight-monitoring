@@ -11,6 +11,12 @@ This is the documentation entry point for Fragile Freight Monitoring. Start with
 - [System overview](architecture/system-overview.md)
 - [Firmware design](firmware/firmware-design.md)
 - [Local setup and verification](development/local-setup.md)
+- [Demo and verification checklist](development/demo-checklist.md)
 - [Engineering conventions](development/conventions.md)
 - [MQTT integration contract](mqtt/integration-contract.md)
 - [Local MQTT broker](mqtt/local-broker.md)
+
+## Module documentation
+
+- [Backend README](../backend/README.md)
+- [Node-RED README](../node-red/README.md)

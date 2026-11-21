@@ -1,6 +1,6 @@
 # Local Setup and Verification
 
-The repository has separate backend and firmware modules. Run each tool from its module directory.
+The repository has separate backend, firmware, and Node-RED modules. Run each tool from its module directory. Use the [demo and verification checklist](demo-checklist.md) to record startup, demo, connectivity, reconnect, and evidence results.
 
 ## Backend
 
@@ -11,7 +11,11 @@ The backend uses Java 21, Spring Boot, and the checked-in Maven Wrapper. From `b
 .\mvnw.cmd spring-boot:run
 ```
 
-The backend is currently a scaffold. MQTT consumption and application APIs are not implemented.
+The backend subscribes to the telemetry and alert topics, keeps the latest telemetry and alert in memory, and exposes `GET /api/sensor/latest`, `GET /api/sensor/esp32-01`, and `GET /api/sensor/esp32-01/alert`. See the [Backend README](../../backend/README.md) for response shapes and configuration.
+
+## Node-RED
+
+The Node-RED flow consumes the same two MQTT topics, validates the payloads, writes the Adafruit IO `gforce` and `status` feeds, and sends Telegram only for an alert whose `status` is `DANGER`, de-duplicated over 1000 ms. Setup and credentials are described in the [Node-RED README](../../node-red/README.md). Actual Adafruit IO feed updates and Telegram message arrival require configured cloud credentials and are not yet verified.
 
 ## Local MQTT development
 
@@ -40,7 +44,7 @@ On Windows, `firmware\scripts\pio.cmd` wraps the same project `.venv` and scopes
 .\firmware\scripts\pio.cmd test -e native
 ```
 
-`firmware/scripts/use_native_toolchain.py` selects the project-local MSYS2 UCRT64 GCC/G++ on Windows only; other hosts, including Ubuntu CI, use the system GCC. The workflow `.github/workflows/firmware.yml` runs `pio test -e native` and `pio run -e esp32dev` on `ubuntu-latest` for pull requests to `main`. CI does not start Wokwi, a broker, or a subscriber, so it does not verify runtime MQTT delivery.
+`firmware/scripts/use_native_toolchain.py` selects the project-local MSYS2 UCRT64 GCC/G++ on Windows only; other hosts, including Ubuntu CI, use the system GCC. The workflow `.github/workflows/firmware.yml` runs `pio test -e native` and `pio run -e esp32dev` on `ubuntu-latest` for pull requests to `main` and pushes to `main`. CI does not start Wokwi, a broker, or a subscriber, so it does not verify runtime MQTT delivery.
 
 The headless Wokwi CLI suite asserts local GPIO and Serial behavior, including when MQTT is unavailable. From the repository root:
 
@@ -56,7 +60,7 @@ The diagram retains explicit ESP32 UART-to-Serial-Monitor wiring. Preserve the T
 
 ## Wokwi MQTT delivery check
 
-Firmware-to-broker delivery needs the VS Code Wokwi simulator with an activated Wokwi license and a running local Mosquitto broker; the CLI suite and CI do not cover it. Start the broker as described in the [Local MQTT Broker guide](../mqtt/local-broker.md), then subscribe on the host to both contract topics:
+Firmware-to-broker delivery uses the VS Code Wokwi simulator (verified with Wokwi for VS Code 4.1.0 Community) and a running local Mosquitto broker; the CLI suite and CI do not cover it. Start the broker as described in the [Local MQTT Broker guide](../mqtt/local-broker.md), then subscribe on the host to both contract topics:
 
 ```powershell
 & "D:\Program Files\Mosquitto\mosquitto_sub.exe" `
@@ -67,19 +71,19 @@ Firmware-to-broker delivery needs the VS Code Wokwi simulator with an activated 
   -v
 ```
 
-Build `esp32dev`, open `firmware/` in VS Code, start the Wokwi simulation, and drive the states from the impact table below. Serial output shows the broker accepting the MQTT connection; the subscriber must print telemetry for SAFE and DANGER and an alert message for each armed DANGER event. Treat delivery as verified only when the subscriber actually receives those messages, not from an accepted connection alone.
+Build `esp32dev`, open `firmware/` in VS Code, start the Wokwi simulation, and move the acceleration controls as in the table below. The firmware connects to `host.wokwi.internal:1883`. When the VS Code Wokwi simulator runs on the same PC as the broker, the existing loopback listener on `127.0.0.1:1883` was sufficient; no additional LAN listener was required.
 
-The broker must accept the Wokwi client at `host.wokwi.internal:1883` as described in the host table of the broker guide; any listener configuration needed for that stays local and untracked.
+Verified on 2026-11-18 ICT in the 16:18:09–16:18:51 capture: the subscriber received telemetry for SAFE, WARNING, and DANGER and exactly one non-retained QoS 0 DANGER alert, and the GUI Serial output and LEDs were observed. Use the VS Code GUI for this check. Wokwi CLI v0.28.1 passed the state cycle and buzzer waveform but reported a gateway connection reset, so it is not used for MQTT delivery.
 
-## Manual Wokwi impact checks
+## Wokwi impact checks
 
-Use the MPU6050 acceleration controls (values in g) and observe Serial output, LEDs, and buzzer:
+Use the MPU6050 acceleration controls and observe Serial output, LEDs, and buzzer:
 
-| Case | Set `(accelX, accelY, accelZ)` | Expected |
+| Case | Set `accelZ` (g) | Expected |
 |---|---|---|
-| SAFE | `(0, 0, 1)` | ~1.00g, SAFE, green LED, buzzer off |
-| WARNING | `(1.0, 0.6, 1.0)` | ~1.54g, ~0.54g deviation, WARNING, yellow LED, buzzer off |
-| DANGER | `(1.7, 0, 1.0)` | ~1.97g, ~0.97g deviation, DANGER, red LED, one short buzzer tone |
-| Return to SAFE | `(0, 0, 1)` | SAFE, green LED; buzzer re-arms after SAFE and cooldown |
+| SAFE | `0.95` | ~0.95g, SAFE, green LED, buzzer off |
+| WARNING | `1.55` | ~1.55g, ~0.55g deviation, WARNING, yellow LED, buzzer off |
+| DANGER | `2.0` | ~2.0g, ~1.0g deviation, DANGER, red LED, one short buzzer tone |
+| Return to SAFE | `0.95` | SAFE, green LED; buzzer re-arms after SAFE and cooldown |
 
-The values are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately; do not claim audible output unless it was actually heard. These checks assert device outputs only; broker delivery is verified separately by the subscriber check above, and the downstream Node-RED, Adafruit IO, Telegram, and Spring Boot consumers are not implemented.
+These are the values used in the verified capture and are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately. When audio is not observable, the buzzer waveform is acceptable evidence; do not claim audible output unless it was actually heard. This table covers device outputs only; firmware-to-broker delivery is checked separately by the subscriber procedure above. Actual Adafruit IO feed updates, Telegram message arrival, and a full end-to-end run remain pending.

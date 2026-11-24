@@ -2,7 +2,7 @@
 
 ## Selected board
 
-The firmware targets the **Espressif ESP32 Dev Module**, identified in PlatformIO as `esp32dev`. It provides integrated WiFi for the planned connectivity phase, sufficient GPIO for the current LEDs and buzzer, and I2C support for the MPU6050. The board is supported by both PlatformIO and Wokwi.
+The firmware targets the **Espressif ESP32 Dev Module**, identified in PlatformIO as `esp32dev`. It provides integrated WiFi for MQTT telemetry and device commands, sufficient GPIO for the current LEDs and buzzer, and I2C support for the MPU6050. The board is supported by both PlatformIO and Wokwi.
 
 The classic ESP32 development module is sufficient for the present sensor, local alert, and future WiFi/MQTT scope. ESP32-S3 or ESP32-C6 features are not required: the project has no current need for S3-specific USB/compute capabilities or C6 WiFi 6/802.15.4 capabilities.
 

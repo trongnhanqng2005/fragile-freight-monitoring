@@ -9,6 +9,7 @@ namespace fragilefreight {
 extern const char DEVICE_ID[];
 extern const char TELEMETRY_TOPIC[];
 extern const char ALERT_TOPIC[];
+extern const char COMMAND_TOPIC[];
 
 bool formatTelemetry(const ImpactSnapshot& sample, char* output, size_t capacity,
                      size_t& length);

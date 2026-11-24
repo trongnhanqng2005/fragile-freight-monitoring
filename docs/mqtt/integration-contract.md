@@ -12,15 +12,28 @@ The single demo device ID is `esp32-01` (lowercase ASCII, hyphen-separated). The
 |---|---|
 | Telemetry | `fragile-freight/esp32-01/telemetry` |
 | Alert | `fragile-freight/esp32-01/alert` |
+| Command | `fragile-freight/esp32-01/command` |
 
 ## Topic publishers and subscribers
 
-The ESP32 firmware produces both application topics. Spring Boot and Node-RED consume them independently; Spring Boot is not a relay, and Node-RED does not depend on Spring Boot to receive MQTT messages.
+The ESP32 firmware produces telemetry and alert topics, and subscribes to the command topic. Spring Boot and Node-RED consume telemetry and alerts independently; Node-RED publishes device commands. Spring Boot is not a relay, and Node-RED does not depend on Spring Boot to receive MQTT messages.
 
 | Topic | Publisher | Subscribers |
 |---|---|---|
 | `fragile-freight/esp32-01/telemetry` | Firmware / ESP32 | Spring Boot backend, Node-RED |
 | `fragile-freight/esp32-01/alert` | Firmware / ESP32 | Spring Boot backend, Node-RED |
+| `fragile-freight/esp32-01/command` | Node-RED / Dashboard | Firmware / ESP32 |
+
+## Downlink commands
+
+Commands are UTF-8 text payloads, QoS 0, non-retained. The firmware accepts only complete single-part messages on the command topic:
+
+| Payload | Effect |
+|---|---|
+| `ALARM_ON` | Enable the local buzzer for future DANGER events. |
+| `ALARM_OFF` | Disable the local buzzer for future DANGER events. |
+
+This controls only the local buzzer. Sensor classification, LEDs, MQTT alerts, and downstream notifications continue to operate.
 
 This separation lets each module develop and test against the broker and shared contract independently.
 
@@ -85,6 +98,8 @@ These cadences are independent:
 | MQTT telemetry publishing | Every 1000 ms |
 
 Publish telemetry in `SAFE`, `WARNING`, and `DANGER`. Publish an alert immediately on entering `DANGER` while alerting is armed; do not wait for the telemetry interval. Do not repeat alerts while DANGER persists. Re-arm only after the state returns to `SAFE` and the existing 1000 ms cooldown since the previous alert has elapsed. `WARNING` does not re-arm the alert.
+
+Commands use QoS 0 and are non-retained. They affect only the local buzzer on future DANGER events; sensor classification, LEDs, and remote alerts are unchanged.
 
 ## Delivery semantics
 

@@ -1,0 +1,9 @@
+{
+  "name": "fragile-freight-node-red",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node-RED middleware and dashboard for fragile freight monitoring",
+  "dependencies": {
+    "node-red-dashboard": "^3.6.5"
+  }
+}

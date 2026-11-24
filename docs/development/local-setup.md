@@ -11,11 +11,17 @@ The backend uses Java 21, Spring Boot, and the checked-in Maven Wrapper. From `b
 .\mvnw.cmd spring-boot:run
 ```
 
-The backend is currently a scaffold. MQTT consumption and application APIs are not implemented.
+The backend consumes the shared telemetry/alert topics and exposes the latest in-memory sensor state through REST endpoints.
 
 ## Local MQTT development
 
 The local Mosquitto broker and host-only CLI publisher-to-subscriber verification are documented in the [Local MQTT Broker guide](../mqtt/local-broker.md). Use the [MQTT Integration Contract](../mqtt/integration-contract.md) for shared topics, payloads, and delivery behavior. Broker hostnames depend on where each client runs; the guide distinguishes host-only clients from Wokwi and physical devices.
+
+## Node-RED middleware and dashboard
+
+From `node-red/`, run `npm install` and `node-red --userDir .`. Open `http://localhost:1880`; if the flow is empty, import the checked-in `flows.json`, then deploy. The local dashboard is at `http://localhost:1880/ui`. It displays live state/G-force, charts G-force history, routes WARNING/DANGER/abnormal telemetry to Telegram when configured, publishes G-force/status to Adafruit IO when configured, and sends alarm commands to the ESP32. Node-RED runtime files and credentials are ignored by Git.
+
+Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in the Node-RED process environment for Telegram. Configure the Adafruit IO MQTT node with the account username and AIO key, then replace `YOUR_AIO_USERNAME` in the flow's two feed topics. Do not commit credentials. The external service branches remain unverified until tested with real credentials.
 
 ## Firmware tooling
 
@@ -71,6 +77,16 @@ Build `esp32dev`, open `firmware/` in VS Code, start the Wokwi simulation, and d
 
 The broker must accept the Wokwi client at `host.wokwi.internal:1883` as described in the host table of the broker guide; any listener configuration needed for that stays local and untracked.
 
+## MQTT command/downlink check
+
+With the ESP32 connected to the broker in Wokwi, publish a command from the host:
+
+```powershell
+mosquitto_pub -h localhost -p 1883 -t "fragile-freight/esp32-01/command" -m "ALARM_OFF"
+```
+
+Drive the sensor into DANGER. The red LED and MQTT alert should still occur while the local buzzer stays off. Publish `ALARM_ON`, return to SAFE, wait for the re-arm cooldown, and drive DANGER again; the buzzer should sound for its configured short tone. The Node-RED dashboard buttons publish the same commands. Save Serial Monitor and MQTT subscriber evidence for the report; this new downlink path has not yet been runtime-verified.
+
 ## Manual Wokwi impact checks
 
 Use the MPU6050 acceleration controls (values in g) and observe Serial output, LEDs, and buzzer:
@@ -82,4 +98,4 @@ Use the MPU6050 acceleration controls (values in g) and observe Serial output, L
 | DANGER | `(1.7, 0, 1.0)` | ~1.97g, ~0.97g deviation, DANGER, red LED, one short buzzer tone |
 | Return to SAFE | `(0, 0, 1)` | SAFE, green LED; buzzer re-arms after SAFE and cooldown |
 
-The values are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately; do not claim audible output unless it was actually heard. These checks assert device outputs only; broker delivery is verified separately by the subscriber check above, and the downstream Node-RED, Adafruit IO, Telegram, and Spring Boot consumers are not implemented.
+The values are deterministic simulation checks, not calibrated physical safety limits. Record observed Wokwi results accurately; do not claim audible output unless it was actually heard. These checks assert device outputs only. Node-RED, Adafruit IO, Telegram, Spring Boot, and downlink runtime behavior each need their own end-to-end evidence.

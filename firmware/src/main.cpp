@@ -108,9 +108,11 @@ void loop() {
     }
 
     if (sample.dangerEvent) {
-      tone(BUZZER_PIN, 2000);
-      buzzerStartedMs = now;
-      buzzerActive = true;
+      if (network.alarmEnabled()) {
+        tone(BUZZER_PIN, 2000);
+        buzzerStartedMs = now;
+        buzzerActive = true;
+      }
       network.publishAlert(sample);
     }
 

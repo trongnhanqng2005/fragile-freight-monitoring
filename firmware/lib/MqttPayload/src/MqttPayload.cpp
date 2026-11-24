@@ -27,6 +27,7 @@ bool finishFormat(int written, char* output, size_t capacity, size_t& length) {
 const char DEVICE_ID[] = "esp32-01";
 const char TELEMETRY_TOPIC[] = "fragile-freight/esp32-01/telemetry";
 const char ALERT_TOPIC[] = "fragile-freight/esp32-01/alert";
+const char COMMAND_TOPIC[] = "fragile-freight/esp32-01/command";
 
 bool formatTelemetry(const ImpactSnapshot& sample, char* output, size_t capacity,
                      size_t& length) {

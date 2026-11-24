@@ -14,3 +14,4 @@ This is the documentation entry point for Fragile Freight Monitoring. Start with
 - [Engineering conventions](development/conventions.md)
 - [MQTT integration contract](mqtt/integration-contract.md)
 - [Local MQTT broker](mqtt/local-broker.md)
+- [Technical report draft](report-technical.md)

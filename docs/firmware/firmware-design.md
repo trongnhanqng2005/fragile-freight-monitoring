@@ -34,19 +34,20 @@ Sensor sampling and Serial reporting use separate `millis()` timing. The firmwar
 
 ## Connectivity and telemetry
 
-After sensor initialization, the firmware starts station-mode Wi-Fi (`Wokwi-GUEST`, channel 6) and connects to Mosquitto at `host.wokwi.internal:1883` using the regular `espMqttClient` 1.7.3 with its internal worker. Wi-Fi/MQTT startup and retries are managed from `loop()` with attempts spaced at least 5000 ms; callbacks only record status. Network unavailability does not gate the local sampling, LED, buzzer, or Serial paths.
+After sensor initialization, the firmware starts station-mode Wi-Fi (`Wokwi-GUEST`, channel 6) and connects to Mosquitto at `host.wokwi.internal:1883` using the regular `espMqttClient` 1.7.3 with its internal worker. Wi-Fi/MQTT startup and retries are managed from `loop()` with attempts spaced at least 5000 ms; MQTT callbacks subscribe to the command topic and handle complete command messages. Network unavailability does not gate the local sampling, LED, buzzer, or Serial paths.
 
 While MQTT is connected, the firmware publishes QoS 0, non-retained messages:
 
 - Telemetry, `fragile-freight/esp32-01/telemetry`, every 1000 ms using the latest valid sample. The JSON fields are exactly `deviceId`, `ax`, `ay`, `az`, `gForce`, and `status` (`SAFE`, `WARNING`, or `DANGER`).
 - Alert, `fragile-freight/esp32-01/alert`, immediately on an armed DANGER event, once per event. The JSON fields are exactly `deviceId`, `status` (`DANGER`), and `gForce`.
+- Command subscription, `fragile-freight/esp32-01/command`, accepts `ALARM_ON` and `ALARM_OFF` to enable or disable the local buzzer for future DANGER events. This does not suppress LEDs or network alerts.
 
-Non-finite samples are not published; telemetry keeps using the latest valid sample. Offline or rejected alerts are dropped and are not queued or replayed after reconnect. There is no application-level queue, Last Will, or subscription.
+Non-finite samples are not published; telemetry keeps using the latest valid sample. Offline or rejected alerts are dropped and are not queued or replayed after reconnect. There is no application-level queue or Last Will. The only subscription is the command topic.
 
 ## Runtime verification status
 
-Native behavior tests and the ESP32 build pass. Firmware-to-broker delivery is verified in VS Code Wokwi with an activated license: the `esp32dev` build selected by `wokwi.toml` connects to a local Mosquitto broker, and a host-side subscriber receives SAFE and DANGER telemetry plus the DANGER alert on the QoS 0, non-retained topics. Delivery counts only once the subscriber receives the messages; an accepted connection alone is not delivery evidence. The procedure is in [Local Setup and Verification](../development/local-setup.md). The headless CLI GPIO suite and CI assert local outputs, native tests, and the build, which are different layers from broker delivery.
+The pre-downlink firmware baseline passed native behavior tests and the ESP32 build. Firmware-to-broker telemetry and alert delivery was verified in VS Code Wokwi with an activated license and a host subscriber. The new command subscription has not yet been built or exercised in Wokwi; verify it with the command procedure in [Local Setup and Verification](../development/local-setup.md) before claiming downlink runtime evidence.
 
-## Not implemented
+## External service setup
 
-Node-RED MQTT flow, Spring Boot MQTT consumption/APIs, Adafruit IO integration, and Telegram integration are not implemented.
+Adafruit IO and Telegram need account credentials and an end-to-end runtime check. The Node-RED flow/dashboard and Spring Boot MQTT consumer/API are included in the repository.

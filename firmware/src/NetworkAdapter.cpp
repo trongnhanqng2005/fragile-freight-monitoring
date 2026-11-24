@@ -1,6 +1,7 @@
 #include "NetworkAdapter.h"
 
 #include <WiFi.h>
+#include <cstring>
 
 #include <MqttPayload.h>
 
@@ -46,10 +47,16 @@ void NetworkAdapter::begin() {
   mqttClient_.onConnect([this](bool sessionPresent) {
     (void)sessionPresent;
     mqttEvents_.fetch_or(MQTT_CONNECTED_EVENT, std::memory_order_relaxed);
+    mqttClient_.subscribe(fragilefreight::COMMAND_TOPIC, 0);
   });
   mqttClient_.onDisconnect([this](espMqttClientTypes::DisconnectReason reason) {
     mqttDisconnectReason_.store(static_cast<uint8_t>(reason), std::memory_order_relaxed);
     mqttEvents_.fetch_or(MQTT_DISCONNECTED_EVENT, std::memory_order_relaxed);
+  });
+  mqttClient_.onMessage([this](const espMqttClientTypes::MessageProperties& properties,
+                               const char* topic, const uint8_t* payload, size_t len,
+                               size_t index, size_t total) {
+    onMqttMessage(properties, topic, payload, len, index, total);
   });
 
   WiFi.onEvent(onWiFiEvent);
@@ -58,7 +65,31 @@ void NetworkAdapter::begin() {
   startWiFiAttempt(millis());
 }
 
+void NetworkAdapter::onMqttMessage(
+    const espMqttClientTypes::MessageProperties& properties, const char* topic,
+    const uint8_t* payload, size_t len, size_t index, size_t total) {
+  (void)properties;
+  if (!topic || !payload || strcmp(topic, fragilefreight::COMMAND_TOPIC) != 0 ||
+      index != 0 || len != total) return;
+  if (len == 8 && memcmp(payload, "ALARM_ON", 8) == 0) {
+    alarmEnabled_.store(true, std::memory_order_relaxed);
+    commandEvents_.store(1, std::memory_order_relaxed);
+  } else if (len == 9 && memcmp(payload, "ALARM_OFF", 9) == 0) {
+    alarmEnabled_.store(false, std::memory_order_relaxed);
+    commandEvents_.store(2, std::memory_order_relaxed);
+  } else {
+    commandEvents_.store(3, std::memory_order_relaxed);
+  }
+}
+
 void NetworkAdapter::update(uint32_t nowMs) {
+  switch (commandEvents_.exchange(0, std::memory_order_relaxed)) {
+    case 1: Serial.println("MQTT command: local buzzer enabled"); break;
+    case 2: Serial.println("MQTT command: local buzzer disabled"); break;
+    case 3: Serial.println("MQTT command ignored: unsupported payload"); break;
+    default: break;
+  }
+
   if (wifiDisconnectedEvent_.exchange(false, std::memory_order_relaxed)) {
     wifiAttemptPending_ = false;
     Serial.println("Wi-Fi: station disconnected");
